@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Your Gift Box!</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1f4068, #162447);
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 { margin-bottom: 10px; font-size: 24px; color: #e43f5a; }
+        p { color: #cfd8dc; font-size: 14px; margin-bottom: 25px; }
+        .counter { font-size: 12px; color: #90a4ae; margin-bottom: 20px; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            margin-bottom: 15px;
+            transition: 0.3s;
+        }
+        .btn-instagram {
+            background: #e1306c;
+            color: white;
+        }
+        .btn-instagram:hover { background: #c13584; }
+        .btn-claim {
+            background: #00adb5;
+            color: white;
+        }
+        .btn-claim:hover { background: #00818a; }
+        .btn:disabled {
+            background: #455a64;
+            color: #b0bec5;
+            cursor: not-allowed;
+        }
+        #status-msg { margin-top: 15px; font-size: 14px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🎁 Unlock Your Gift Box!</h1>
+        <p>Support us by following our Instagram page first to unlock your prize.</p>
+
+        <!-- Step 1: Follow on Instagram -->
+        <a href="https://instagram.com/ipkonbiscuit" target="_blank" id="insta-btn" class="btn btn-instagram" onclick="enableClaim()">
+            1. Follow Us on Instagram
+        </a>
+
+        <!-- Step 2: Claim Box Button (Locked Initially) -->
+        <button id="claim-btn" class="btn btn-claim" disabled onclick="claimGiftBox()">
+            2. Claim Your Gift Box!
+        </button>
+
+        <div id="status-msg"></div>
+    </div>
+
+    <script>
+        function enableClaim() {
+            // Unlock the claim button after they click the Instagram link
+            const claimBtn = document.getElementById('claim-btn');
+            claimBtn.disabled = false;
+            document.getElementById('status-msg').style.color = '#00adb5';
+            document.getElementById('status-msg').innerText = "Thanks for following! You can now claim your gift box.";
+        }
+
+        async function claimGiftBox() {
+            const claimBtn = document.getElementById('claim-btn');
+            const statusMsg = document.getElementById('status-msg');
+            
+            claimBtn.disabled = true;
+            statusMsg.style.color = '#ffeb3b';
+            statusMsg.innerText = "Opening your gift box...";
+
+            try {
+                let response = await fetch('/claim', { method: 'POST' });
+                let result = await response.json();
+                
+                if (response.ok) {
+                    statusMsg.style.color = '#4caf50';
+                    statusMsg.innerText = "Success! Your gift box is opening now! 🎉";
+                } else {
+                    throw new Error(result.message || "Failed to trigger");
+                }
+            } catch (err) {
+                statusMsg.style.color = '#f44336';
+                statusMsg.innerText = "Error triggering machine. Try again!";
+                claimBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
