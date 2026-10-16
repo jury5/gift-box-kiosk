@@ -64,10 +64,9 @@
     <div class="card">
         <h1>🎁 Unlock Your Gift Box!</h1>
         <p>Support us by following our Instagram page first to unlock your prize.</p>
-        <div class="counter">Visitor Entry ID: #{{ count }}</div>
 
         <!-- Step 1: Follow on Instagram -->
-        <a href="https://instagram.com/YOUR_INSTAGRAM_USERNAME" target="_blank" id="insta-btn" class="btn btn-instagram" onclick="enableClaim()">
+        <a href="https://www.instagram.com/ipkonbiscuit" target="_blank" id="insta-btn" class="btn btn-instagram" onclick="enableClaim()">
             1. Follow Us on Instagram
         </a>
 
