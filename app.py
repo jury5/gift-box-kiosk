@@ -7,11 +7,11 @@ app = Flask(__name__)
 
 # --- EMQX Cloud Configuration ---
 MQTT_BROKER = os.environ.get(
-    "MQTT_BROKER", "YOUR_EMQX_BROKER_ENDPOINT.emqx.cloud"
+    "MQTT_BROKER", "n6966951.ala.us-east-1.emqxsl.com"
 )
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 8883))
-MQTT_USER = os.environ.get("MQTT_USER", "YOUR_EMQX_USERNAME")
-MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "YOUR_EMQX_PASSWORD")
+MQTT_USER = os.environ.get("MQTT_USER", "chicomiko")
+MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "chicomiko123")
 MQTT_TOPIC = "giftbox/trigger"
 
 # Initialize visitor counter in memory
