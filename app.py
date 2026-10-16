@@ -14,8 +14,6 @@ MQTT_USER = os.environ.get("MQTT_USER", "chicomiko")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "chicomiko123")
 MQTT_TOPIC = "giftbox/trigger"
 
-# Initialize visitor counter in memory
-visitor_count = 0
 
 # Initialize MQTT Client
 mqtt_client = mqtt.Client(client_id="RenderKioskBridge")
@@ -38,10 +36,7 @@ connect_mqtt()
 
 @app.route("/")
 def index():
-  global visitor_count
-  visitor_count += 1
-  return render_template("index.html", count=visitor_count)
-
+  return render_template("index.html")
 
 @app.route("/claim", methods=["POST"])
 def claim_box():
