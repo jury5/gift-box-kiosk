@@ -1,58 +1,60 @@
-import json
 import os
-from flask import Flask, jsonify, render_template, request
+import json
+from flask import Flask, render_template, jsonify
 import paho.mqtt.client as mqtt
 
 app = Flask(__name__)
 
 # --- EMQX Cloud Configuration ---
-MQTT_BROKER = os.environ.get(
-    "MQTT_BROKER", "n6966951.ala.us-east-1.emqxsl.com"
-)
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "n6966951.ala.us-east-1.emqxsl.com")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 8883))
 MQTT_USER = os.environ.get("MQTT_USER", "chicomiko")
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD", "chicomiko123")
 MQTT_TOPIC = "giftbox/trigger"
 
+def get_mqtt_client(client_id):
+    """Compatible with both paho-mqtt v1.x and v2.x"""
+    try:
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
+    except AttributeError:
+        return mqtt.Client(client_id=client_id)
 
-# Initialize MQTT Client
-mqtt_client = mqtt.Client(client_id="RenderKioskBridge")
-mqtt_client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
-mqtt_client.tls_set()
-
-
-def connect_mqtt():
-  try:
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    mqtt_client.loop_start()
-    print("Connected to EMQX Cloud successfully!")
-  except Exception as e:
-    print(f"Failed to connect to MQTT broker: {e}")
-
-
-# Connect on startup
-connect_mqtt()
-
+def send_open_command():
+    """Connects, transmits the payload to EMQX, and cleanly disconnects."""
+    client_id = f"RenderKiosk-{os.urandom(4).hex()}"
+    client = get_mqtt_client(client_id)
+    
+    client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
+    client.tls_set()
+    client.tls_insecure_set(True)
+    
+    # Connect with a 10s timeout
+    client.connect(MQTT_BROKER, MQTT_PORT, 10)
+    
+    # Start the worker thread
+    client.loop_start()
+    
+    # Publish 'open' and block until the broker confirms delivery
+    msg_info = client.publish(MQTT_TOPIC, "open", qos=1)
+    msg_info.wait_for_publish(timeout=5.0)
+    
+    # Clean shutdown of the worker network thread
+    client.loop_stop()
+    client.disconnect()
 
 @app.route("/")
 def index():
-  return render_template("index.html")
+    return render_template("index.html")
 
 @app.route("/claim", methods=["POST"])
 def claim_box():
-  try:
-    # Publish MQTT payload to trigger the ESP32 stepper motor
-    payload = json.dumps({"action": "open", "source": "web_kiosk"})
-    result = mqtt_client.publish(MQTT_TOPIC, payload)
-
-    if result.rc == mqtt.MQTT_ERR_SUCCESS:
-      return jsonify({"status": "success", "message": "Gift box triggered!"}), 200
-    else:
-      return jsonify({"status": "error", "message": "Failed to publish MQTT"}), 500
-  except Exception as e:
-    return jsonify({"status": "error", "message": str(e)}), 500
-
+    try:
+        send_open_command()
+        return jsonify({"status": "success", "message": "Gift box triggered!"}), 200
+    except Exception as e:
+        print(f"MQTT Publish Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
-  port = int(os.environ.get("PORT", 5000))
-  app.run(host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
