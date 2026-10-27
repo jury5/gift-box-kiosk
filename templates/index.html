@@ -42,7 +42,7 @@
             border: 1px solid rgba(255, 255, 255, 0.18);
             background: rgba(255, 255, 255, 0.08);
             color: #fff;
-            font-size: 15px;
+            font-size: 16px;
             font-family: inherit;
         }
         input::placeholder { color: #78909c; }
@@ -71,7 +71,6 @@
             background: #455a64;
             color: #b0bec5;
             cursor: not-allowed;
-            pointer-events: none;
         }
         .btn-claim { background: #00adb5; color: white; }
         .btn-claim:hover { background: #00818a; }
@@ -101,7 +100,7 @@
         </div>
         <div class="field">
             <label for="email">Email</label>
-            <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com">
+            <input id="email" type="email" autocomplete="email" autocapitalize="off" maxlength="120" placeholder="you@example.com">
         </div>
         <div class="field">
             <label for="phone">Phone</label>
@@ -109,7 +108,7 @@
         </div>
         <div class="hint">Name, surname and at least one of email or phone are required.</div>
 
-        <!-- Step 2: Follow on Instagram (locked until the details are valid) -->
+        <!-- Step 2: Follow on Instagram (looks locked until the details are valid) -->
         <a href="https://instagram.com/ipkonbiscuit" target="_blank" rel="noopener"
            id="insta-btn" class="btn btn-instagram disabled" aria-disabled="true">
             2. Follow Us on Instagram
@@ -138,38 +137,56 @@
             statusMsg.innerText = text;
         }
 
-        function formIsValid() {
+        // Returns a message describing what is wrong, or null if the form is valid
+        function getProblem() {
             const name = nameEl.value.trim();
             const surname = surnameEl.value.trim();
             const email = emailEl.value.trim();
-            const phoneDigits = phoneEl.value.replace(/\D/g, '');
+            const phoneRaw = phoneEl.value.trim();
+            const phoneDigits = phoneRaw.replace(/\D/g, '');
 
-            const emailOk = email !== '' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-            const phoneOk = phoneDigits.length >= 7 && phoneDigits.length <= 15;
-
-            // Whatever is filled in must be valid, and at least one contact is needed
-            if (email !== '' && !emailOk) return false;
-            if (phoneEl.value.trim() !== '' && !phoneOk) return false;
-            return name !== '' && surname !== '' && (emailOk || phoneOk);
+            if (!name) return 'Enter your name.';
+            if (!surname) return 'Enter your surname.';
+            if (!email && !phoneRaw) return 'Enter an email or a phone number.';
+            if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'Enter a valid email address.';
+            if (phoneRaw && (phoneDigits.length < 7 || phoneDigits.length > 15)) return 'Enter a valid phone number (7 to 15 digits).';
+            return null;
         }
 
         function refreshInstagramButton() {
-            const ok = formIsValid();
+            const ok = getProblem() === null;
             instaBtn.classList.toggle('disabled', !ok);
             instaBtn.setAttribute('aria-disabled', String(!ok));
         }
 
         // Editing anything after the check invalidates it
-        fields.forEach(el => el.addEventListener('input', () => {
-            claimToken = null;
-            claimBtn.disabled = true;
-            setStatus('');
+        function onFieldEdited() {
+            if (claimToken !== null) {
+                claimToken = null;
+                claimBtn.disabled = true;
+                setStatus('');
+            }
             refreshInstagramButton();
-        }));
+        }
 
-        // Clicking Instagram: let the link open, and ask the server in parallel
+        // Several events + polling, because mobile autofill/paste/suggestions
+        // don't always fire "input"
+        fields.forEach(el => {
+            ['input', 'change', 'keyup', 'paste', 'blur'].forEach(evt =>
+                el.addEventListener(evt, () => setTimeout(onFieldEdited, 0))
+            );
+        });
+        setInterval(refreshInstagramButton, 500);
+
+        // Clicking Instagram: if the form is incomplete, say why. Otherwise
+        // let the link open and ask the server in parallel.
         instaBtn.addEventListener('click', async (e) => {
-            if (!formIsValid()) { e.preventDefault(); return; }
+            const problem = getProblem();
+            if (problem) {
+                e.preventDefault();
+                setStatus(problem, '#f44336');
+                return;
+            }
 
             setStatus('Checking your details...', '#ffeb3b');
             claimBtn.disabled = true;
@@ -178,3 +195,58 @@
                 const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: nameEl.value,
+                        surname: surnameEl.value,
+                        email: emailEl.value,
+                        phone: phoneEl.value
+                    })
+                });
+                const result = await res.json();
+
+                if (result.eligible) {
+                    claimToken = result.token;
+                    claimBtn.disabled = false;
+                    setStatus('Thanks for following! You can now claim your gift box.', '#00adb5');
+                } else {
+                    claimToken = null;
+                    claimBtn.disabled = true;
+                    setStatus(result.message || 'You are not eligible for a gift box.', '#f44336');
+                }
+            } catch (err) {
+                setStatus('Connection problem. Please tap the Instagram button again.', '#f44336');
+            }
+        });
+
+        claimBtn.addEventListener('click', async () => {
+            if (!claimToken) return;
+
+            claimBtn.disabled = true;
+            setStatus('Opening your gift box...', '#ffeb3b');
+
+            try {
+                const res = await fetch('/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: claimToken })
+                });
+                const result = await res.json();
+
+                if (res.ok) {
+                    setStatus('Success! Your gift box is opening now! 🎉', '#4caf50');
+                    fields.forEach(el => el.disabled = true);
+                    instaBtn.classList.add('disabled');
+                    claimToken = null;
+                } else {
+                    throw new Error(result.message || 'Failed to trigger');
+                }
+            } catch (err) {
+                setStatus(err.message || 'Error triggering machine. Try again!', '#f44336');
+                claimBtn.disabled = false;
+            }
+        });
+
+        refreshInstagramButton();
+    </script>
+</body>
+</html>
